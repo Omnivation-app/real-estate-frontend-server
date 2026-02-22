@@ -236,7 +236,8 @@ HTML_CONTENT = """<!DOCTYPE html>
             error.style.display = 'none';
 
             try {
-                let url = `${API_URL}/api/search`;
+                // Utiliser l'API de scraping en temps reel
+                let url = `${API_URL}/api/search-realtime`;
                 if (location) {
                     url += `?location=${encodeURIComponent(location)}`;
                 }
