@@ -1,0 +1,320 @@
+from flask import Flask, render_template_string
+import os
+
+app = Flask(__name__)
+
+# HTML du frontend
+HTML_CONTENT = """<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Estate - Annonces Immobilières</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .search-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-box button {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .search-box button:hover {
+            background: #764ba2;
+        }
+
+        .listings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .listing-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .listing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .listing-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+        }
+
+        .listing-content {
+            padding: 20px;
+        }
+
+        .listing-price {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .listing-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .listing-location {
+            color: #666;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .listing-details {
+            display: flex;
+            justify-content: space-around;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .detail-item {
+            text-align: center;
+        }
+
+        .detail-value {
+            font-weight: bold;
+            color: #333;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1em;
+            color: #999;
+            grid-column: 1 / -1;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏠 Real Estate</h1>
+        <p>Trouvez votre maison de rêve</p>
+    </header>
+
+    <div class="search-container">
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Rechercher par lieu (ex: Cannes, Paris, Lyon...)"
+            >
+            <button onclick="search()">🔍 Rechercher</button>
+        </div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+        ⏳ Chargement des annonces...
+    </div>
+
+    <div id="listings" class="listings-grid"></div>
+
+    <footer>
+        <p>&copy; 2026 Real Estate - Tous droits réservés</p>
+    </footer>
+
+    <script>
+        const API_URL = 'https://omnivation-api-81002a93597c.herokuapp.com';
+
+        async function search() {
+            const searchTerm = document.getElementById('searchInput').value;
+            await loadListings(searchTerm);
+        }
+
+        async function loadListings(location = '') {
+            const loading = document.getElementById('loading');
+            const listings = document.getElementById('listings');
+            const error = document.getElementById('error');
+
+            loading.style.display = 'block';
+            listings.innerHTML = '';
+            error.style.display = 'none';
+
+            try {
+                let url = `${API_URL}/api/search`;
+                if (location) {
+                    url += `?location=${encodeURIComponent(location)}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erreur lors du chargement');
+
+                const data = await response.json();
+                const listingsData = data.listings || [];
+
+                loading.style.display = 'none';
+
+                if (listingsData.length === 0) {
+                    listings.innerHTML = `<div class="no-results">Aucune annonce trouvée pour "${location}"</div>`;
+                    return;
+                }
+
+                listingsData.forEach(listing => {
+                    const card = document.createElement('div');
+                    card.className = 'listing-card';
+                    card.innerHTML = `
+                        <div class="listing-image">
+                            📷 ${listing.title}
+                        </div>
+                        <div class="listing-content">
+                            <div class="listing-price">€ ${(listing.price || 0).toLocaleString('fr-FR')}</div>
+                            <div class="listing-title">${listing.title}</div>
+                            <div class="listing-location">📍 ${listing.location}</div>
+                            <div class="listing-details">
+                                <div class="detail-item">
+                                    <span class="detail-value">${listing.bedrooms || 0}</span>
+                                    Chambres
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-value">${listing.bathrooms || 0}</span>
+                                    SdB
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-value">${listing.area || 0}</span>
+                                    m²
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    listings.appendChild(card);
+                });
+
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `❌ Erreur: ${err.message}`;
+                console.error('Erreur:', err);
+            }
+        }
+
+        // Charger les annonces au démarrage
+        window.addEventListener('load', () => {
+            loadListings();
+        });
+
+        // Permettre la recherche avec Entrée
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                search();
+            }
+        });
+    </script>
+</body>
+</html>"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_CONTENT)
+
+@app.route('/health')
+def health():
+    return {"status": "healthy"}
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
