@@ -1,5 +1,4 @@
-from flask import Flask, render_template_string
-import os
+from flask import Flask
 
 app = Flask(__name__)
 
@@ -110,21 +109,17 @@ HTML_CONTENT = """<!DOCTYPE html>
             justify-content: center;
             font-size: 14px;
             color: white;
+            padding: 20px;
+            text-align: center;
+            word-wrap: break-word;
         }
 
         .listing-content {
             padding: 20px;
         }
 
-        .listing-price {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
         .listing-title {
-            font-size: 1.2em;
+            font-size: 1.1em;
             font-weight: 600;
             margin-bottom: 10px;
             color: #333;
@@ -136,25 +131,6 @@ HTML_CONTENT = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             gap: 5px;
-        }
-
-        .listing-details {
-            display: flex;
-            justify-content: space-around;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .detail-item {
-            text-align: center;
-        }
-
-        .detail-value {
-            font-weight: bold;
-            color: #333;
-            display: block;
         }
 
         .loading {
@@ -188,6 +164,16 @@ HTML_CONTENT = """<!DOCTYPE html>
             margin-bottom: 20px;
             text-align: center;
         }
+        
+        .result-count {
+            text-align: center;
+            padding: 20px;
+            background: #e8f4f8;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -206,10 +192,11 @@ HTML_CONTENT = """<!DOCTYPE html>
             <button onclick="search()">🔍 Rechercher</button>
         </div>
         <div id="error" class="error" style="display: none;"></div>
+        <div id="resultCount" class="result-count" style="display: none;"></div>
     </div>
 
     <div id="loading" class="loading" style="display: none;">
-        ⏳ Chargement des annonces...
+        ⏳ Chargement des annonces... Cela peut prendre quelques minutes...
     </div>
 
     <div id="listings" class="listings-grid"></div>
@@ -230,10 +217,12 @@ HTML_CONTENT = """<!DOCTYPE html>
             const loading = document.getElementById('loading');
             const listings = document.getElementById('listings');
             const error = document.getElementById('error');
+            const resultCount = document.getElementById('resultCount');
 
             loading.style.display = 'block';
             listings.innerHTML = '';
             error.style.display = 'none';
+            resultCount.style.display = 'none';
 
             try {
                 // Utiliser l'API de scraping en temps reel
@@ -255,30 +244,31 @@ HTML_CONTENT = """<!DOCTYPE html>
                     return;
                 }
 
+                // Afficher le nombre de résultats
+                resultCount.innerHTML = `✅ ${listingsData.length} annonces trouvées pour "${location}"`;
+                resultCount.style.display = 'block';
+
                 listingsData.forEach(listing => {
                     const card = document.createElement('div');
                     card.className = 'listing-card';
+                    const agencyName = listing.agency_name || 'Agence';
+                    const agencyPhone = listing.agency_phone || '';
+                    const agencyRating = listing.agency_rating || 0;
+                    const url = listing.url || '#';
+                    
                     card.innerHTML = `
                         <div class="listing-image">
-                            📷 ${listing.title}
+                            📷 ${listing.title.substring(0, 50)}
                         </div>
                         <div class="listing-content">
-                            <div class="listing-price">€ ${(listing.price || 0).toLocaleString('fr-FR')}</div>
-                            <div class="listing-title">${listing.title}</div>
-                            <div class="listing-location">📍 ${listing.location}</div>
-                            <div class="listing-details">
-                                <div class="detail-item">
-                                    <span class="detail-value">${listing.bedrooms || 0}</span>
-                                    Chambres
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-value">${listing.bathrooms || 0}</span>
-                                    SdB
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-value">${listing.area || 0}</span>
-                                    m²
-                                </div>
+                            <div class="listing-title">${listing.title.substring(0, 100)}</div>
+                            <div class="listing-location">🏢 ${agencyName}</div>
+                            <div style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                ${agencyPhone ? '📞 ' + agencyPhone : 'Téléphone non disponible'}
+                            </div>
+                            ${agencyRating ? `<div style="color: #f39c12; margin-top: 5px;">⭐ ${agencyRating}/5</div>` : ''}
+                            <div style="margin-top: 10px;">
+                                <a href="${url}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: bold;">Voir l'annonce →</a>
                             </div>
                         </div>
                     `;
@@ -288,8 +278,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             } catch (err) {
                 loading.style.display = 'none';
                 error.style.display = 'block';
-                error.textContent = `❌ Erreur: ${err.message}`;
-                console.error('Erreur:', err);
+                error.innerHTML = `❌ Erreur: ${err.message}`;
             }
         }
 
@@ -297,25 +286,14 @@ HTML_CONTENT = """<!DOCTYPE html>
         window.addEventListener('load', () => {
             loadListings();
         });
-
-        // Permettre la recherche avec Entrée
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                search();
-            }
-        });
     </script>
 </body>
-</html>"""
+</html>
+"""
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_CONTENT)
-
-@app.route('/health')
-def health():
-    return {"status": "healthy"}
+    return HTML_CONTENT
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(debug=True, host='0.0.0.0', port=5000)
