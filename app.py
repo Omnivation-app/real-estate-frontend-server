@@ -282,9 +282,10 @@ HTML_CONTENT = """<!DOCTYPE html>
             }
         }
 
-        // Charger les annonces au démarrage
+        // Afficher un message d'accueil au démarrage
         window.addEventListener('load', () => {
-            loadListings();
+            const listings = document.getElementById('listings');
+            listings.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; padding: 60px 20px; text-align: center;"><h2 style="font-size: 2em; margin-bottom: 20px; color: #667eea;">Bienvenue sur Real Estate</h2><p style="font-size: 1.1em; color: #666; margin-bottom: 30px;">Recherchez des annonces immobilieres par lieu</p><p style="color: #999;">Exemples: Nice, Cannes, Antibes, Toulon, Frejus...</p></div>';
         });
     </script>
 </body>
